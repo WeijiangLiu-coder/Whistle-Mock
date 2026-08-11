@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Whistle Mock</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M5 8.5L12 4l7 4.5v7L12 20l-7-4.5v-7z"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M12 12v8M12 12L5 8.5M12 12l7-3.5"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+            </svg>
+          </div>
+          <div class="brand-text">
+            <h1>Whistle Mock</h1>
+          </div>
+        </div>
+
+        <div class="status-rail">
+          <div class="status-chip" title="Whistle 运行状态">
+            <span id="w2Dot" class="dot off"></span>
+            <span id="w2Label">检测中…</span>
+            <span id="modeBadge" class="badge">-</span>
+          </div>
+
+          <div class="proxy-chip">
+            <span class="proxy-label">代理</span>
+            <code id="proxyAddress">-</code>
+            <button id="btnCopyProxy" type="button" class="btn ghost compact">复制</button>
+          </div>
+
+          <div class="actions">
+            <button id="btnStart" type="button" class="btn secondary w2-only">启动 w2</button>
+            <button id="btnStop" type="button" class="btn ghost w2-only">停止</button>
+            <button id="btnRefreshStatus" type="button" class="btn ghost">刷新</button>
+            <a id="whistleUiLink" class="btn ghost" href="#" target="_blank" rel="noreferrer">Whistle</a>
+            <button id="btnHelp" type="button" class="btn secondary" aria-haspopup="dialog">
+              使用说明
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main class="workspace case-workspace">
+        <aside class="panel tree-col">
+          <div class="col-head">
+            <div class="col-title">
+              <div>
+                <h2>项目目录</h2>
+                <p class="col-desc">镜像本地仓库，按需展开</p>
+              </div>
+              <span id="leafCount" class="count" title="可 mock 用例数">0</span>
+            </div>
+            <label class="search-field">
+              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8" />
+                <path d="M16 16l4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+              </svg>
+              <input id="treeSearch" type="search" placeholder="搜索已展开内容 / mockId…" />
+            </label>
+          </div>
+          <div id="caseTree" class="tree"></div>
+        </aside>
+
+        <section class="panel preview">
+          <div class="col-head">
+            <div class="col-title">
+              <div>
+                <h2>用例详情</h2>
+                <p class="col-desc">预览接口并启用 mock</p>
+              </div>
+              <div class="col-title-right">
+                <div class="nav-btns" title="跳转历史">
+                  <button id="btnNavBack" type="button" class="btn ghost icon-btn" disabled aria-label="后退">
+                    ←
+                  </button>
+                  <button id="btnNavForward" type="button" class="btn ghost icon-btn" disabled aria-label="前进">
+                    →
+                  </button>
+                </div>
+                <span id="selectedMeta" class="count soft">未选择</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="apply-form">
+            <div class="case-summary">
+              <div class="meta-card">
+                <span class="k">路径</span>
+                <code id="casePath">-</code>
+              </div>
+              <div class="meta-card">
+                <span class="k">mockId</span>
+                <code id="caseMockId">-</code>
+              </div>
+              <div class="meta-card meta-card-select">
+                <span class="k">规则组</span>
+                <div class="nice-select" id="ruleGroupSelect">
+                  <button
+                    type="button"
+                    class="nice-select-trigger"
+                    id="ruleGroupTrigger"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                    aria-label="选择规则组"
+                  >
+                    <span class="nice-select-value" id="ruleGroupValue">Default</span>
+                    <svg class="nice-select-caret" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path
+                        d="M4 6l4 4 4-4"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </button>
+                  <ul class="nice-select-menu" id="ruleGroupMenu" role="listbox" hidden></ul>
+                  <select id="ruleGroup" class="nice-select-native" aria-hidden="true" tabindex="-1">
+                    <option value="Default">Default</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <button id="btnToggle" type="button" class="btn primary" disabled>
+              勾选左侧用例以启用
+            </button>
+            <p id="applyMsg" class="msg"></p>
+          </div>
+
+          <div class="preview-wrap">
+            <div class="preview-toolbar">
+              <span class="preview-label">接口列表</span>
+            </div>
+            <div id="apiTable" class="api-table">
+              <div class="empty-state">
+                <div class="empty-icon" aria-hidden="true">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M4 7.5A2.5 2.5 0 016.5 5h11A2.5 2.5 0 0120 7.5v9a2.5 2.5 0 01-2.5 2.5h-11A2.5 2.5 0 014 16.5v-9z"
+                      stroke="currentColor"
+                      stroke-width="1.6"
+                    />
+                    <path d="M8 9h8M8 12.5h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                  </svg>
+                </div>
+                <h3>选择一个用例开始</h3>
+                <p>在左侧展开三端用例文件夹，勾选最小用例目录即可写入整套 Rules / Values。</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="panel history">
+        <div class="history-head">
+          <h2>最近应用</h2>
+          <span class="history-hint">本地记录，便于快速回顾</span>
+        </div>
+        <ul id="historyList"></ul>
+      </footer>
+    </div>
+
+    <div id="helpOverlay" class="drawer-overlay" hidden>
+      <div class="drawer" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+        <div class="drawer-head">
+          <div>
+            <h2 id="helpTitle">使用说明</h2>
+            <p>把本地 TestHub 用例一键接到 Whistle</p>
+          </div>
+          <button id="btnCloseHelp" type="button" class="btn ghost icon-btn" aria-label="关闭">
+            ✕
+          </button>
+        </div>
+        <ol class="help-list">
+          <li>
+            <strong>浏览全库</strong>
+            <span>左侧镜像本地仓库（含 base-data），按需展开查看文件内容。</span>
+          </li>
+          <li>
+            <strong>用例可整套勾选</strong>
+            <span>三端用例文件夹内的最小目录（含 .mock.ts、无子目录）可整套 mock。</span>
+          </li>
+          <li>
+            <strong>base-data 可单文件勾选</strong>
+            <span>base-data/接口名/*.json 可单独勾选启用；同一接口再次勾选会替换。</span>
+          </li>
+          <li>
+            <strong>勾选启用</strong>
+            <span>写入 Values + Rules；取消勾选则清除对应内容。</span>
+          </li>
+          <li>
+            <strong>同时只启用一套</strong>
+            <span>勾选新的用例会自动替换旧的一套 mock。</span>
+          </li>
+        </ol>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

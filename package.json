@@ -1,0 +1,33 @@
+{
+  "name": "whistle.mock-console",
+  "version": "1.0.0",
+  "description": "Whistle 插件：浏览 testHub base-data，一键写入 Values/Rules",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server/standalone.js",
+    "dev": "node --watch server/standalone.js",
+    "plugin:link": "node scripts/link-plugin.js",
+    "plugin:unlink": "node scripts/link-plugin.js --unlink"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "keywords": [
+    "whistle",
+    "whistle-plugin",
+    "mock",
+    "proxy"
+  ],
+  "license": "MIT",
+  "whistleConfig": {
+    "hideShortProtocol": true,
+    "hideLongProtocol": true,
+    "toolsTab": {
+      "name": "Mock",
+      "action": "/index.html"
+    }
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

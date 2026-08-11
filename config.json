@@ -1,0 +1,13 @@
+{
+  "port": 3789,
+  "gitlabProjectKey": "2773",
+  "mockConfigFile": "testhub.mock.config.json",
+  "caseRoots": [
+    "Ctrip端门票活动向导测试用例",
+    "Trip端门票活动向导测试用例",
+    "TripPC端门票活动向导测试用例"
+  ],
+  "whistlePort": 8899,
+  "whistleHost": "127.0.0.1",
+  "ruleGroup": "Default"
+}
