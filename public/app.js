@@ -158,9 +158,13 @@ async function loadActive() {
       if (f && f.apiName && f.path) map[f.apiName] = f.path;
     }
     state.activeFiles = map;
-  } catch (_) {
+    if (data.warning) {
+      setMsg(data.warning, 'err');
+    }
+  } catch (e) {
     state.activePath = null;
     state.activeFiles = {};
+    setMsg(e.message || '读取当前 mock 状态失败', 'err');
   }
   renderTree();
   updateToggleButton();

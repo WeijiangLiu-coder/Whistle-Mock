@@ -130,34 +130,45 @@ async function ensureWhistle(config) {
 }
 
 async function readRuleText(config) {
-  const current = await whistle.getRuleValue(
+  return whistle.getRuleText(
     config.whistleHost,
     config.whistlePort,
     config.ruleGroup
   );
-  return current && current.value && typeof current.value.value === 'string'
-    ? current.value.value
-    : '';
 }
 
 async function getActiveCase(config) {
   const status = await whistle.getStatus(config.whistleHost, config.whistlePort);
+  whistle.bindConfigEndpoint(config, status);
   if (!status.runningByHttp) {
-    return { active: null, ruleGroup: config.ruleGroup };
+    return {
+      active: null,
+      ruleGroup: config.ruleGroup,
+      warning: status.httpError || 'Whistle CGI 未就绪',
+    };
   }
-  const text = await readRuleText(config);
-  const meta = parseActiveFromRules(text);
-  return {
-    active: meta
-      ? {
-          path: meta.path || null,
-          name: meta.name || null,
-          mockId: meta.mockId || null,
-          values: meta.values || [],
-        }
-      : null,
-    ruleGroup: config.ruleGroup,
-  };
+  try {
+    const text = await readRuleText(config);
+    const meta = parseActiveFromRules(text);
+    return {
+      active: meta
+        ? {
+            path: meta.path || null,
+            name: meta.name || null,
+            mockId: meta.mockId || null,
+            values: meta.values || [],
+          }
+        : null,
+      ruleGroup: config.ruleGroup,
+    };
+  } catch (e) {
+    // 页面初始化不应因读规则失败而整体 500
+    return {
+      active: null,
+      ruleGroup: config.ruleGroup,
+      warning: e.message,
+    };
+  }
 }
 
 async function clearCase(config) {

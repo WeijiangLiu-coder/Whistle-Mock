@@ -301,6 +301,42 @@ async function getRuleValue(host, port, name) {
   return cgiRequest(host, port, 'GET', `/cgi-bin/rules/value?name=${q}`);
 }
 
+/**
+ * 读取规则组正文。
+ * 优先 /cgi-bin/rules/value；若 404/失败则回退 /cgi-bin/rules/list
+ *（兼容部分 Whistle 版本或异常环境）。
+ */
+async function getRuleText(host, port, name) {
+  const group = name || 'Default';
+  let valueErr = null;
+  try {
+    const current = await getRuleValue(host, port, group);
+    if (current && current.value && typeof current.value.value === 'string') {
+      return current.value.value;
+    }
+    // value 为 null：自定义组不存在
+    if (current && current.value == null && group !== 'Default') {
+      return '';
+    }
+  } catch (e) {
+    valueErr = e;
+  }
+
+  try {
+    const data = await listRules(host, port);
+    if (group === 'Default') {
+      return typeof data.defaultRules === 'string' ? data.defaultRules : '';
+    }
+    const item = (data.list || []).find((x) => x && x.name === group);
+    if (item && typeof item.data === 'string') {
+      return item.data;
+    }
+    return '';
+  } catch (listErr) {
+    throw valueErr || listErr;
+  }
+}
+
 async function addRules(host, port, name, value, selected = true) {
   return cgiRequest(host, port, 'POST', '/cgi-bin/rules/add', {
     name,
@@ -352,6 +388,7 @@ module.exports = {
   listRules,
   listRuleGroups,
   getRuleValue,
+  getRuleText,
   addRules,
   selectRules,
   addValue,

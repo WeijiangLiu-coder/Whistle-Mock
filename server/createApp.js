@@ -241,9 +241,18 @@ function createApp(options = {}) {
 
   app.get('/api/cases/active', async (req, res) => {
     try {
+      await syncWhistleEndpoint(config);
       const result = await getActiveCase(config);
       const files = await getActiveFileMocks(config);
-      res.json({ ok: true, ...result, files: files.files || [] });
+      const warning = result.warning || files.warning || null;
+      res.json({
+        ok: true,
+        ...result,
+        files: files.files || [],
+        warning,
+        whistleHost: config.whistleHost,
+        whistlePort: config.whistlePort,
+      });
     } catch (e) {
       res.status(500).json({ ok: false, error: e.message });
     }
@@ -251,6 +260,7 @@ function createApp(options = {}) {
 
   app.post('/api/cases/apply', async (req, res) => {
     try {
+      await syncWhistleEndpoint(config);
       const rel = req.body && req.body.path;
       if (!rel) {
         return res.status(400).json({ ok: false, error: '需要 path' });
@@ -258,7 +268,13 @@ function createApp(options = {}) {
       const result = await applyCase(config, { path: rel });
       res.json({ ok: true, ...result });
     } catch (e) {
-      res.status(500).json({ ok: false, error: e.message });
+      res.status(500).json({
+        ok: false,
+        error: e.message,
+        whistleHost: config.whistleHost,
+        whistlePort: config.whistlePort,
+        ruleGroup: config.ruleGroup,
+      });
     }
   });
 

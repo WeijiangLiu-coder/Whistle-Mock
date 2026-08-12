@@ -139,14 +139,11 @@ async function ensureWhistle(config) {
 }
 
 async function readRuleText(config) {
-  const current = await whistle.getRuleValue(
+  return whistle.getRuleText(
     config.whistleHost,
     config.whistlePort,
     config.ruleGroup
   );
-  return current && current.value && typeof current.value.value === 'string'
-    ? current.value.value
-    : '';
 }
 
 async function applyMock(config, { apiName, fileName, valueName }) {
@@ -249,14 +246,27 @@ async function clearMockByPath(config, relPath) {
 
 async function getActiveFileMocks(config) {
   const status = await whistle.getStatus(config.whistleHost, config.whistlePort);
+  whistle.bindConfigEndpoint(config, status);
   if (!status.runningByHttp) {
-    return { files: [], ruleGroup: config.ruleGroup };
+    return {
+      files: [],
+      ruleGroup: config.ruleGroup,
+      warning: status.httpError || 'Whistle CGI 未就绪',
+    };
   }
-  const text = await readRuleText(config);
-  return {
-    files: parseActiveFileMocks(text),
-    ruleGroup: config.ruleGroup,
-  };
+  try {
+    const text = await readRuleText(config);
+    return {
+      files: parseActiveFileMocks(text),
+      ruleGroup: config.ruleGroup,
+    };
+  } catch (e) {
+    return {
+      files: [],
+      ruleGroup: config.ruleGroup,
+      warning: e.message,
+    };
+  }
 }
 
 module.exports = {
