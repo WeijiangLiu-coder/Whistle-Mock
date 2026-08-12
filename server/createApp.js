@@ -10,6 +10,24 @@ const {
   getActiveFileMocks,
 } = require('./applyMock');
 
+function syncEndpointFromHostHeader(req, config) {
+  const hostHeader = String(req.headers.host || '');
+  const m = /^([^:]+):(\d+)$/.exec(hostHeader);
+  if (!m) return;
+  const host = m[1] === 'localhost' ? '127.0.0.1' : m[1];
+  const port = Number(m[2]);
+  if (!port) return;
+  // 插件模式下，页面本身就挂在 Whistle UI 端口上，优先跟 Host 对齐
+  config.whistleHost = host;
+  config.whistlePort = port;
+}
+
+async function syncWhistleEndpoint(config) {
+  const status = await whistle.getStatus(config.whistleHost, config.whistlePort);
+  whistle.bindConfigEndpoint(config, status);
+  return status;
+}
+
 function createApp(options = {}) {
   const mode = options.mode || 'standalone';
   const config = loadConfig();
@@ -18,6 +36,12 @@ function createApp(options = {}) {
   app.use(express.json({ limit: '20mb' }));
   app.use(express.urlencoded({ extended: true, limit: '20mb' }));
   app.use(express.static(path.join(__dirname, '..', 'public')));
+  app.use((req, res, next) => {
+    if (mode === 'plugin') {
+      syncEndpointFromHostHeader(req, config);
+    }
+    next();
+  });
 
   app.get('/api/config', (req, res) => {
     res.json({
@@ -36,6 +60,7 @@ function createApp(options = {}) {
 
   app.get('/api/rules/groups', async (req, res) => {
     try {
+      await syncWhistleEndpoint(config);
       const data = await whistle.listRuleGroups(
         config.whistleHost,
         config.whistlePort
@@ -80,10 +105,7 @@ function createApp(options = {}) {
 
   app.get('/api/status', async (req, res) => {
     try {
-      const status = await whistle.getStatus(
-        config.whistleHost,
-        config.whistlePort
-      );
+      const status = await syncWhistleEndpoint(config);
       res.json({ ok: true, mode, ...status, ruleGroup: config.ruleGroup });
     } catch (e) {
       res.status(500).json({ ok: false, error: e.message });
@@ -96,6 +118,9 @@ function createApp(options = {}) {
         config.whistleHost,
         config.whistlePort
       );
+      if (result && result.status) {
+        whistle.bindConfigEndpoint(config, result.status);
+      }
       res.json({ ok: true, ...result });
     } catch (e) {
       res.status(500).json({ ok: false, error: e.message });
@@ -108,6 +133,9 @@ function createApp(options = {}) {
         config.whistleHost,
         config.whistlePort
       );
+      if (result && result.status) {
+        whistle.bindConfigEndpoint(config, result.status);
+      }
       res.json({ ok: true, ...result });
     } catch (e) {
       res.status(500).json({ ok: false, error: e.message });

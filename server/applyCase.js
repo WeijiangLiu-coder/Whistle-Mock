@@ -112,15 +112,19 @@ function clearCaseBlock(existingText) {
 
 async function ensureWhistle(config) {
   let status = await whistle.getStatus(config.whistleHost, config.whistlePort);
+  whistle.bindConfigEndpoint(config, status);
   if (!status.runningByHttp) {
     const started = await whistle.startWhistle(
       config.whistleHost,
       config.whistlePort
     );
     status = started.status;
+    whistle.bindConfigEndpoint(config, status);
   }
   if (!status.runningByHttp) {
-    throw new Error('Whistle 未就绪，无法写入 Rules/Values');
+    throw new Error(
+      `Whistle 未就绪，无法写入 Rules/Values（当前尝试 ${config.whistleHost}:${config.whistlePort}）`
+    );
   }
   return status;
 }

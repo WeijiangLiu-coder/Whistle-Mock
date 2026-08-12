@@ -41,7 +41,7 @@ npm run plugin:link
 | `projectRoot` | 可选；一般不配，默认扫 `~/my-gitlab/*2773*` |
 | `caseRoots` | 三端用例根目录名 |
 | `ruleGroup` | 写入的 Whistle 规则组 |
-| `whistlePort` | 默认 8899 |
+| `whistlePort` / `whistleHost` | 可选回退值；默认自动探测当前 w2 端口（不限于 8899） |
 
 ## API
 

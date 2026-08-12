@@ -77,7 +77,8 @@ function loadConfig() {
           'Trip端门票活动向导测试用例',
           'TripPC端门票活动向导测试用例',
         ],
-    whistlePort: config.whistlePort || 8899,
+    // 仅作回退提示；运行时会按 w2 status / 页面 Host 自动探测真实端口
+    whistlePort: Number(config.whistlePort) || 8899,
     whistleHost: config.whistleHost || '127.0.0.1',
     ruleGroup: config.ruleGroup || 'Default',
     mockRoot: path.join(projectRoot, 'base-data'),

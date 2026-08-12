@@ -50,34 +50,109 @@ function runW2(args, timeoutMs = 15000) {
   );
 }
 
-async function getStatus(whistleHost, whistlePort) {
-  const lanIp = getLanIpv4();
-  const proxyAddress = lanIp ? `${lanIp}:${whistlePort}` : `127.0.0.1:${whistlePort}`;
+/** 从 w2 status 文本里解析实际监听端口 */
+function parsePortsFromW2Status(text) {
+  const ports = [];
+  const seen = new Set();
+  const re =
+    /https?:\/\/(?:\d+\.\d+\.\d+\.\d+|localhost|127\.0\.0\.1):(\d+)/gi;
+  let m;
+  while ((m = re.exec(String(text || '')))) {
+    const port = Number(m[1]);
+    if (!port || seen.has(port)) continue;
+    seen.add(port);
+    ports.push(port);
+  }
+  return ports;
+}
+
+/**
+ * 自动解析 Whistle WebUI 地址：
+ * 1) 优先探测 w2 status 里出现的端口（适配非 8899）
+ * 2) 再试传入的 hint
+ * 3) 都不通时回退 hint（默认 8899），供后续 start 使用
+ */
+async function resolveWhistleEndpoint(hostHint = '127.0.0.1', portHint = 8899) {
+  const host = hostHint || '127.0.0.1';
+  const hint = Number(portHint) || 8899;
   const cli = await runW2(['status']);
   const text = `${cli.stdout}\n${cli.stderr}`;
-  const runningByCli = /running|pid|listen|port/i.test(text) && !/No running Whistle/i.test(text);
+  const runningByCli =
+    /running|pid|listen|port/i.test(text) && !/No running Whistle/i.test(text);
+  const statusPorts = parsePortsFromW2Status(text);
 
-  let runningByHttp = false;
+  const candidates = [];
+  const push = (h, p) => {
+    const port = Number(p);
+    if (!h || !port) return;
+    const key = `${h}:${port}`;
+    if (candidates.some((c) => `${c.host}:${c.port}` === key)) return;
+    candidates.push({ host: h, port });
+  };
+
+  for (const p of statusPorts) {
+    push('127.0.0.1', p);
+    if (host !== '127.0.0.1') push(host, p);
+  }
+  push(host, hint);
+  if (host !== '127.0.0.1') push('127.0.0.1', hint);
+
   let httpError = null;
-  try {
-    await cgiRequest(whistleHost, whistlePort, 'GET', '/cgi-bin/init');
-    runningByHttp = true;
-  } catch (e) {
-    httpError = e.message;
+  for (const c of candidates) {
+    try {
+      await cgiRequest(c.host, c.port, 'GET', '/cgi-bin/init');
+      return {
+        whistleHost: c.host,
+        whistlePort: c.port,
+        runningByHttp: true,
+        runningByCli,
+        cliText: text.trim(),
+        httpError: null,
+        detectedPorts: statusPorts,
+      };
+    } catch (e) {
+      httpError = e.message;
+    }
   }
 
-  const running = runningByHttp || runningByCli;
   return {
-    running,
-    runningByHttp,
+    whistleHost: host,
+    whistlePort: statusPorts[0] || hint,
+    runningByHttp: false,
     runningByCli,
-    whistleHost,
-    whistlePort,
-    lanIp,
-    proxyAddress,
-    uiUrl: `http://${whistleHost}:${whistlePort}`,
     cliText: text.trim(),
     httpError,
+    detectedPorts: statusPorts,
+  };
+}
+
+/** 把解析到的 host/port 写回运行时 config */
+function bindConfigEndpoint(config, endpoint) {
+  if (!config || !endpoint) return endpoint;
+  config.whistleHost = endpoint.whistleHost;
+  config.whistlePort = endpoint.whistlePort;
+  return endpoint;
+}
+
+async function getStatus(whistleHost, whistlePort) {
+  const resolved = await resolveWhistleEndpoint(whistleHost, whistlePort);
+  const lanIp = getLanIpv4();
+  const proxyAddress = lanIp
+    ? `${lanIp}:${resolved.whistlePort}`
+    : `127.0.0.1:${resolved.whistlePort}`;
+  const running = resolved.runningByHttp || resolved.runningByCli;
+  return {
+    running,
+    runningByHttp: resolved.runningByHttp,
+    runningByCli: resolved.runningByCli,
+    whistleHost: resolved.whistleHost,
+    whistlePort: resolved.whistlePort,
+    lanIp,
+    proxyAddress,
+    uiUrl: `http://${resolved.whistleHost}:${resolved.whistlePort}`,
+    cliText: resolved.cliText,
+    httpError: resolved.httpError,
+    detectedPorts: resolved.detectedPorts,
   };
 }
 
@@ -87,11 +162,14 @@ async function startWhistle(whistleHost, whistlePort) {
     return { alreadyRunning: true, status };
   }
 
+  const startPort = status.whistlePort || Number(whistlePort) || 8899;
+  const startHost = status.whistleHost || whistleHost || '127.0.0.1';
+
   // 后台启动，避免阻塞
   await new Promise((resolve, reject) => {
     const child = spawn(
       'w2',
-      ['start', '-p', String(whistlePort)],
+      ['start', '-p', String(startPort)],
       {
         detached: true,
         stdio: 'ignore',
@@ -108,8 +186,8 @@ async function startWhistle(whistleHost, whistlePort) {
   let lastError = null;
   while (Date.now() < deadline) {
     try {
-      await cgiRequest(whistleHost, whistlePort, 'GET', '/cgi-bin/init');
-      const next = await getStatus(whistleHost, whistlePort);
+      await cgiRequest(startHost, startPort, 'GET', '/cgi-bin/init');
+      const next = await getStatus(startHost, startPort);
       return { alreadyRunning: false, status: next };
     } catch (e) {
       lastError = e.message;
@@ -264,6 +342,9 @@ async function removeValue(host, port, name) {
 
 module.exports = {
   getLanIpv4,
+  parsePortsFromW2Status,
+  resolveWhistleEndpoint,
+  bindConfigEndpoint,
   getStatus,
   startWhistle,
   stopWhistle,
